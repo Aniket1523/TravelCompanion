@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 
-@patch("routers.auth.get_supabase_client")
+@patch("routers.auth.get_anon_client")
 @patch("routers.auth.auth_service")
 def test_signup(mock_service, mock_client, client):
     mock_service.signup.return_value = {
@@ -23,7 +23,7 @@ def test_signup(mock_service, mock_client, client):
     assert data["user_id"] == "new-user-id"
 
 
-@patch("routers.auth.get_supabase_client")
+@patch("routers.auth.get_anon_client")
 @patch("routers.auth.auth_service")
 def test_login(mock_service, mock_client, client):
     mock_service.login.return_value = {
@@ -42,7 +42,7 @@ def test_login(mock_service, mock_client, client):
     assert data["access_token"] == "tok-456"
 
 
-@patch("routers.auth.get_supabase_client")
+@patch("routers.auth.get_anon_client")
 @patch("routers.auth.auth_service")
 def test_refresh(mock_service, mock_client, client):
     mock_service.refresh_token.return_value = {
