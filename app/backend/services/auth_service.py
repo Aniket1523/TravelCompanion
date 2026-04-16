@@ -7,18 +7,27 @@ from logging_config import logger
 
 
 def signup(client: Client, email: str, password: str) -> dict:
-    """Register a new user via Supabase Auth."""
+    """Register a new user via Supabase Auth.
+
+    Uses the anon client — no Authorization header required.
+    When email confirmation is enabled in Supabase the session will be None
+    and empty token strings are returned; the user must confirm before login.
+    """
     try:
         result = client.auth.sign_up({"email": email, "password": password})
     except Exception as e:
         error_msg = str(e)
+        # Supabase returns "User already registered" for duplicate emails.
         if "already registered" in error_msg.lower():
             raise ConflictError("A user with this email already exists")
-        logger.error("Signup failed for %s: %s", email, error_msg)
-        raise AuthenticationError("Signup failed")
+        # Re-raise anything else so the 500 handler exposes the real cause
+        # in Railway logs rather than silently mapping it to a 401.
+        logger.error("Signup error for %s: %s", email, error_msg)
+        raise
 
     if not result.user:
-        raise AuthenticationError("Signup failed")
+        logger.error("Supabase sign_up returned no user for %s", email)
+        raise AuthenticationError("Signup failed — please try again")
 
     session = result.session
     logger.info("User signed up: %s", result.user.id)
