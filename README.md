@@ -76,7 +76,7 @@ cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --reload --app-dir .
 ```
 
 ### Frontend
@@ -98,23 +98,23 @@ cp .env.example .env
 ### Running Tests
 
 ```bash
-cd tests
-pip install -r requirements.txt
-pytest
+pip install -r tests/requirements.txt
+PYTHONPATH=backend pytest tests/
 ```
 
 ## Project Structure
 
 ```
 /
-├── app/
-│   ├── frontend/       # Next.js application
-│   └── backend/        # FastAPI application
-│       ├── routers/    # API route handlers
-│       ├── services/   # Business logic layer
-│       └── models/     # Data models
+├── backend/            # FastAPI application
+│   ├── routers/        # API route handlers
+│   ├── services/       # Business logic layer
+│   └── models/         # Data models
+├── frontend/           # Next.js application
 ├── tests/              # Test suite
 ├── docs/               # Project documentation
+├── nixpacks.toml       # Railway build configuration
+├── railway.json        # Railway deploy configuration
 └── .github/workflows/  # CI/CD pipelines
 ```
 
