@@ -9,7 +9,6 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from config import FRONTEND_URL
 from exceptions import (
     AuthenticationError,
     ConflictError,
@@ -26,20 +25,28 @@ app = FastAPI(
     version="0.2.0",
 )
 
+# Middleware registration order: Starlette wraps in reverse, so the LAST
+# middleware added becomes the OUTERMOST (first to see every request).
+#
+# Request flow:  CORSMiddleware → SlowAPIMiddleware → routes
+# Register:      SlowAPIMiddleware first (innermost), CORSMiddleware last (outermost).
+
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-# SlowAPIMiddleware activates Limiter.default_limits for every request and
-# enforces per-route @limiter.limit decorators.
+# Registered FIRST → innermost; only runs after CORS has passed the request.
 app.add_middleware(SlowAPIMiddleware)
 
-# CORS: allow explicit frontend origin (not wildcard with credentials)
-allowed_origins = [FRONTEND_URL]
-if FRONTEND_URL != "http://localhost:3000":
-    allowed_origins.append("http://localhost:3000")
-
+# Registered LAST → outermost; handles OPTIONS preflights immediately with 200
+# before rate-limiting or any business logic runs.
+# allow_origins=["*"] + allow_credentials=True is invalid per the CORS spec —
+# explicit origins are required when credentials are enabled.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=[
+        "https://travel-companion-sky.vercel.app",
+        "http://localhost:3000",
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
