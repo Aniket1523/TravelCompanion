@@ -10,8 +10,12 @@ def signup(client: Client, email: str, password: str) -> dict:
     """Register a new user via Supabase Auth.
 
     Uses the anon client — no Authorization header required.
-    When email confirmation is enabled in Supabase the session will be None
-    and empty token strings are returned; the user must confirm before login.
+
+    Returns a dict always containing access_token, refresh_token, user_id, and
+    email_confirmation_required. When Supabase has email confirmation enabled,
+    sign_up succeeds but result.session is None; we return empty token strings
+    AND email_confirmation_required=True so the frontend can branch cleanly
+    instead of persisting empty tokens and getting 401s on the next request.
     """
     try:
         result = client.auth.sign_up({"email": email, "password": password})
@@ -31,11 +35,18 @@ def signup(client: Client, email: str, password: str) -> dict:
         raise AuthenticationError("Signup failed — please try again")
 
     session = result.session
-    logger.info("User signed up: %s", result.user.id)
+    email_confirmation_required = session is None
+    if email_confirmation_required:
+        logger.info(
+            "User signed up, email confirmation required: %s", result.user.id
+        )
+    else:
+        logger.info("User signed up with active session: %s", result.user.id)
     return {
         "access_token": session.access_token if session else "",
         "refresh_token": session.refresh_token if session else "",
         "user_id": str(result.user.id),
+        "email_confirmation_required": email_confirmation_required,
     }
 
 
@@ -47,6 +58,14 @@ def login(client: Client, email: str, password: str) -> dict:
         )
     except Exception as e:
         error_msg = str(e).lower()
+        # Supabase returns "Email not confirmed" when the user hasn't clicked
+        # the confirmation link yet. Give the UI a specific, actionable message
+        # instead of a generic "invalid credentials" (which misleads the user).
+        if "email not confirmed" in error_msg or "confirm your email" in error_msg:
+            raise AuthenticationError(
+                "Please confirm your email before signing in. "
+                "Check your inbox for the confirmation link."
+            )
         if (
             "invalid login" in error_msg
             or "invalid email" in error_msg
@@ -97,3 +116,23 @@ def logout(client: Client, access_token: str) -> dict:
         pass  # Best-effort logout
     logger.info("User logged out")
     return {"message": "Logged out successfully"}
+
+
+def resend_confirmation(client: Client, email: str) -> dict:
+    """Resend the Supabase signup confirmation email.
+
+    Swallows Supabase errors intentionally — we must not reveal whether a given
+    email is registered (that would enable account enumeration). The response
+    is always the same generic success message.
+    """
+    try:
+        client.auth.resend({"type": "signup", "email": email})
+    except Exception as e:
+        # Log server-side only; never surface to caller.
+        logger.info("Resend confirmation attempt for %s: %s", email, e)
+    return {
+        "message": (
+            "If an account exists for this email, a confirmation link "
+            "has been sent."
+        )
+    }

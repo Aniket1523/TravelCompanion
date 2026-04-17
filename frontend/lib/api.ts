@@ -60,6 +60,13 @@ class ApiClient {
     await this.request("/auth/logout", { method: "POST" });
   }
 
+  async resendConfirmation(email: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>("/auth/resend-confirmation", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
   // Flights
   async createFlight(data: {
     flight_number: string;

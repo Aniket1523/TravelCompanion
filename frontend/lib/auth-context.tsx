@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { api } from "./api";
+import type { SignupResult } from "./types";
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -17,7 +18,10 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
+  // Returns a discriminated result so the caller can route based on whether
+  // Supabase requires email confirmation. When requiresEmailConfirmation is
+  // true NO tokens have been persisted — the user is NOT authenticated.
+  signup: (email: string, password: string) => Promise<SignupResult>;
   logout: () => void;
 }
 
@@ -49,13 +53,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState({ isAuthenticated: true, userId: res.user_id, isLoading: false });
   }, []);
 
-  const signup = useCallback(async (email: string, password: string) => {
-    const res = await api.signup(email, password);
-    localStorage.setItem("access_token", res.access_token);
-    localStorage.setItem("refresh_token", res.refresh_token);
-    localStorage.setItem("user_id", res.user_id);
-    setState({ isAuthenticated: true, userId: res.user_id, isLoading: false });
-  }, []);
+  const signup = useCallback(
+    async (email: string, password: string): Promise<SignupResult> => {
+      const res = await api.signup(email, password);
+
+      // Email-confirmation-required branch: backend returns empty token
+      // strings. We MUST NOT persist them or set isAuthenticated, otherwise
+      // the user will be redirected to a "logged in" dashboard that 401s on
+      // every request.
+      if (res.email_confirmation_required) {
+        return { requiresEmailConfirmation: true, email };
+      }
+
+      localStorage.setItem("access_token", res.access_token);
+      localStorage.setItem("refresh_token", res.refresh_token);
+      localStorage.setItem("user_id", res.user_id);
+      setState({
+        isAuthenticated: true,
+        userId: res.user_id,
+        isLoading: false,
+      });
+      return { requiresEmailConfirmation: false, email };
+    },
+    []
+  );
 
   const logout = useCallback(() => {
     api.logout().catch(() => {});

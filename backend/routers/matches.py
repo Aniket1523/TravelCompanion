@@ -1,8 +1,10 @@
-from __future__ import annotations
-
+# NOTE: Do NOT add ``from __future__ import annotations`` here. It combines
+# with ``Body(...)`` to produce unresolvable Annotated[ForwardRef, Body(...)]
+# tuples and Pydantic raises PydanticUserError at request time. See the
+# matching note in ``routers/auth.py``.
 from typing import List
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Body, Depends, Query, Request
 from supabase import Client
 
 from auth import get_current_user
@@ -24,7 +26,7 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 @limiter.limit("20/minute")
 def run_match(
     request: Request,
-    body: MatchRunRequest,
+    body: MatchRunRequest = Body(...),
     user: dict = Depends(get_current_user),
 ):
     """Trigger the matching engine for a flight.

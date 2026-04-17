@@ -2,6 +2,15 @@ export interface AuthResponse {
   access_token: string;
   refresh_token: string;
   user_id: string;
+  // True when Supabase email confirmation is enabled. In this case the tokens
+  // are empty strings and MUST NOT be persisted — the user must click the
+  // confirmation link before they can log in.
+  email_confirmation_required?: boolean;
+}
+
+export interface SignupResult {
+  requiresEmailConfirmation: boolean;
+  email: string;
 }
 
 export interface Flight {

@@ -31,8 +31,15 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
-      await signup(email, password);
-      router.push("/dashboard");
+      const result = await signup(email, password);
+      if (result.requiresEmailConfirmation) {
+        // Do NOT route to dashboard — user has no valid session yet.
+        router.push(
+          `/signup/check-email?email=${encodeURIComponent(result.email)}`
+        );
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
     } finally {
